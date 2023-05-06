@@ -6,7 +6,6 @@ from bs4 import BeautifulSoup
 import fw_ip_list
 import credential
 import acl_ip_list
-import ssh_connection
 
 IP_LIST = fw_ip_list.ip_list
 
