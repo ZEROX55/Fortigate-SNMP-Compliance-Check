@@ -19,7 +19,7 @@ HOSTNAME_CMD = "show system global"
 
 # Compliance check strings
 SNMP_STATUS_CHECK = "set status enable"
-COMMUNITY_NAME_CHECK = "RO_LZDMgmt"
+COMMUNITY_NAME_CHECK = credential.SNMP_STRING
 
 def ssh_command(ip, username, password, command):
     """
