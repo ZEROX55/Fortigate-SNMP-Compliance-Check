@@ -5,6 +5,8 @@ import re
 from bs4 import BeautifulSoup
 import fw_ip_list
 import credential
+import acl_ip_list
+import ssh_connection
 
 IP_LIST = fw_ip_list.ip_list
 
@@ -21,18 +23,31 @@ HOSTNAME_CMD = "show system global"
 SNMP_STATUS_CHECK = "set status enable"
 COMMUNITY_NAME_CHECK = credential.SNMP_STRING
 
+class SSHConnection:
+    def __init__(self, hostname, username, password):
+        self.hostname = hostname
+        self.username = username
+        self.password = password
+        self.client = None
+
+    def __enter__(self):
+        self.client = paramiko.SSHClient()
+        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.client.connect(hostname=self.hostname, username=self.username, password=self.password, timeout=10)
+        return self.client
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.client.close()
+
 def ssh_command(ip, username, password, command):
     """
     SSH to device and execute a command
     """
     try:
-        ssh_client = paramiko.SSHClient()
-        ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh_client.connect(hostname=ip, username=username, password=password, timeout=10)
-        stdin, stdout, stderr = ssh_client.exec_command(command)
-        output = stdout.read().decode("utf-8")
-        ssh_client.close()
-        return output
+        with SSHConnection(ip, username, password) as ssh_client:
+            stdin, stdout, stderr = ssh_client.exec_command(command)
+            output = stdout.read().decode("utf-8")
+            return output
     except paramiko.AuthenticationException:
         return "Authentication failed."
     except paramiko.SSHException:
@@ -41,6 +56,7 @@ def ssh_command(ip, username, password, command):
         return "Could not open channel."
     except Exception as e:
         return f"Command fail. {str(e)}"
+
 
 def generate_report(html_content):
     """
@@ -85,13 +101,7 @@ def main():
                     config_ips = extract_ips_from_config(community_output)
                     print("Extracted IP addresses:", config_ips)
                     # Check if all IPs are in the allowed IP list
-                    required_ips = [
-                        "30.104.18.1",
-                        "30.104.17.11",
-                        "30.104.16.204",
-                        "30.107.254.42",
-                        "30.107.254.43",
-                    ]
+                    required_ips = acl_ip_list.must_have_ip
 
                     # Check if all required IPs are in the extracted IPs
                     if all(ip in config_ips for ip in required_ips):
